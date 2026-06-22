@@ -1,0 +1,219 @@
+### IdeaSnap REST API Test Cases
+# Use VS Code REST Client plugin or IntelliJ HTTP Client to execute these queries directly.
+# Default base url is http://localhost:8080. Update as needed.
+
+@baseUrl = http://localhost:28080
+
+### 1. Register Alice (User)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "email": "alice@ideasnap.com",
+  "password": "password123",
+  "bio": "Senior Java Developer | Spring & Kubernetes expert",
+  "profileImage": "https://api.dicebear.com/7.x/adventurer/svg?seed=alice"
+}
+
+### 2. Register Bob (User)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "bob",
+  "email": "bob@ideasnap.com",
+  "password": "password123",
+  "bio": "AI Engineer | DevOps and Kubernetes enthusiast",
+  "profileImage": "https://api.dicebear.com/7.x/adventurer/svg?seed=bob"
+}
+
+### 3. Login as Alice (To obtain Access and Refresh Tokens)
+# @name aliceLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "password123"
+}
+
+### Capture Alice Tokens from Login response
+@aliceAccessToken = {{aliceLogin.response.body.accessToken}}
+@aliceRefreshToken = {{aliceLogin.response.body.refreshToken}}
+
+
+### 4. Login as Bob (To obtain Access and Refresh Tokens)
+# @name bobLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "bob",
+  "password": "password123"
+}
+
+### Capture Bob Tokens from Login response
+@bobAccessToken = {{bobLogin.response.body.accessToken}}
+@bobRefreshToken = {{bobLogin.response.body.refreshToken}}
+
+
+### 5. Refresh Access Token (Uses Alice's Refresh Token)
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{aliceRefreshToken}}"
+}
+
+
+### 6. Create Public Post as Alice (With Tags and Markdown)
+# @name createPostAlice
+POST {{baseUrl}}/api/posts
+Content-Type: application/json
+Authorization: Bearer {{aliceAccessToken}}
+
+{
+  "title": "Mastering Spring Boot 3.x Virtual Threads",
+  "content": "### What are Virtual Threads?\nVirtual threads are lightweight threads that reduce the overhead of writing, maintaining, and debugging high-throughput concurrent applications. \n\nTo enable them in **Spring Boot 3.x**, just add this to your properties:\n```yaml\nspring.threads.virtual.enabled: true\n```\nThis maps Tomcat's request handler execution to use virtual threads instead of platform threads. Highly recommended for I/O heavy apps!",
+  "tags": ["Spring", "Java", "DevOps"],
+  "visibility": "PUBLIC",
+  "expiresInMinutes": 60
+}
+
+### Capture Created Post ID
+@postId = {{createPostAlice.response.body.id}}
+
+
+### 7. Create Private Post as Bob
+POST {{baseUrl}}/api/posts
+Content-Type: application/json
+Authorization: Bearer {{bobAccessToken}}
+
+{
+  "title": "My Private AI Architecture Draft",
+  "content": "Secret configurations for fine-tuning LLMs on local cluster. Internal use only.",
+  "tags": ["AI", "Kubernetes"],
+  "visibility": "PRIVATE"
+}
+
+
+### 8. Fetch Single Post by ID (Public Access)
+GET {{baseUrl}}/api/posts/{{postId}}
+Accept: application/json
+
+
+### 9. Get Public Feed (Latest Posts - default)
+GET {{baseUrl}}/api/posts?sort=latest&page=0&size=10
+Accept: application/json
+
+
+### 10. Get Public Feed (Trending Posts)
+GET {{baseUrl}}/api/posts?sort=trending&page=0&size=10
+Accept: application/json
+
+
+### 11. React to Post (Bob reacts INSIGHTFUL to Alice's post)
+POST {{baseUrl}}/api/posts/{{postId}}/reactions
+Content-Type: application/json
+Authorization: Bearer {{bobAccessToken}}
+
+{
+  "reactionType": "INSIGHTFUL"
+}
+
+
+### 12. Fetch Alice's Post Again (To verify reaction count & Bob's active reaction type)
+GET {{baseUrl}}/api/posts/{{postId}}
+Accept: application/json
+Authorization: Bearer {{bobAccessToken}}
+
+
+### 13. Remove Reaction (Bob removes reaction)
+DELETE {{baseUrl}}/api/posts/{{postId}}/reactions
+Authorization: Bearer {{bobAccessToken}}
+
+
+### 14. Comment on Post (Bob comments on Alice's post)
+# @name createComment
+POST {{baseUrl}}/api/posts/{{postId}}/comments
+Content-Type: application/json
+Authorization: Bearer {{bobAccessToken}}
+
+{
+  "content": "This is amazing! Virtual threads are a game-changer for high concurrency environments."
+}
+
+### Capture Created Comment ID
+@commentId = {{createComment.response.body.id}}
+
+
+### 15. Get Comments for Alice's Post
+GET {{baseUrl}}/api/posts/{{postId}}/comments?page=0&size=5
+Accept: application/json
+
+
+### 16. Delete Comment (Bob deletes his own comment)
+DELETE {{baseUrl}}/api/comments/{{commentId}}
+Authorization: Bearer {{bobAccessToken}}
+
+
+### 17. Follow Alice (Bob follows Alice)
+POST {{baseUrl}}/api/users/alice/follow
+Authorization: Bearer {{bobAccessToken}}
+
+
+### 18. Get Followers of Alice (Should include Bob)
+GET {{baseUrl}}/api/users/alice/followers?page=0&size=10
+Accept: application/json
+
+
+### 19. Get Following list of Bob (Should include Alice)
+GET {{baseUrl}}/api/users/bob/following?page=0&size=10
+Accept: application/json
+
+
+### 20. Unfollow Alice (Bob unfollows Alice)
+POST {{baseUrl}}/api/users/alice/unfollow
+Authorization: Bearer {{bobAccessToken}}
+
+
+### 21. Get User Profile (Get Alice's profile info)
+GET {{baseUrl}}/api/users/alice
+Accept: application/json
+
+
+### 22. Update User Profile (Alice updates her bio)
+PUT {{baseUrl}}/api/users/profile
+Content-Type: application/json
+Authorization: Bearer {{aliceAccessToken}}
+
+{
+  "bio": "Principal Architect & Java Champion | Developer Advocate",
+  "profileImage": "https://api.dicebear.com/7.x/adventurer/svg?seed=aliceUpdated"
+}
+
+
+### 23. Search Posts by Tag (Search 'Spring')
+GET {{baseUrl}}/api/search?tag=Spring&page=0&size=10
+Accept: application/json
+
+
+### 24. Search Posts by Username (Search author 'alice')
+GET {{baseUrl}}/api/search?username=alice&page=0&size=10
+Accept: application/json
+
+
+### 25. Search Posts by Title (Search query 'Mastering')
+GET {{baseUrl}}/api/search?query=Mastering&page=0&size=10
+Accept: application/json
+
+
+### 26. Delete Post (Alice deletes her own post)
+DELETE {{baseUrl}}/api/posts/{{postId}}
+Authorization: Bearer {{aliceAccessToken}}
+
+
+### 27. Logout (Invalidates Alice's session and token)
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{aliceAccessToken}}
